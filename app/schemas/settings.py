@@ -27,6 +27,8 @@ class SiteSettingsBase(BaseModel):
     
     statistics_image_url: Optional[str] = None
     statistics_items: Optional[List[StatisticItem]] = []
+    
+    default_hero_image_url: Optional[str] = None
 
 class SiteSettingsUpdate(SiteSettingsBase):
     pass

@@ -87,3 +87,35 @@ async def upload_statistics_image(
     await db.commit()
     await db.refresh(settings)
     return settings
+
+@router.post("/default-hero-image", response_model=SiteSettingsResponse, dependencies=[RequireAdmin])
+async def upload_default_hero_image(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Upload a background image for the default hero section. Admin only.
+    """
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File provided is not an image.")
+        
+    ext = file.filename.split('.')[-1]
+    filename = f"default_hero_bg_{uuid.uuid4()}.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    image_url = f"/uploads/settings/{filename}"
+    
+    result = await db.execute(select(SiteSettings))
+    settings = result.scalars().first()
+    if not settings:
+        settings = SiteSettings()
+        db.add(settings)
+        
+    settings.default_hero_image_url = image_url
+    
+    await db.commit()
+    await db.refresh(settings)
+    return settings

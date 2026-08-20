@@ -9,5 +9,6 @@ class Page(BaseModel):
     content = Column(Text, nullable=False)
     meta_title = Column(String, nullable=True)
     meta_description = Column(String, nullable=True)
+    meta_keywords = Column(String, nullable=True)
     featured_image_url = Column(String(1024), nullable=True)
     is_published = Column(Boolean, default=True)

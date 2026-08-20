@@ -23,3 +23,4 @@ class SiteSettings(Base):
     bottom_links = Column(JSON, default=list)
     statistics_image_url = Column(String(512), nullable=True)
     statistics_items = Column(JSON, default=list)
+    default_hero_image_url = Column(String(1024), nullable=True)

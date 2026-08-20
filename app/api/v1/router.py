@@ -25,6 +25,8 @@ from .endpoints.services import router as services_router
 from .endpoints.practice_areas import router as practice_areas_router
 from .endpoints.hero_sliders import router as hero_sliders_router
 from .endpoints.settings import router as settings_router
+from .endpoints.section_content import router as section_content_router
+from .endpoints.seo import router as seo_router
 api_router = APIRouter()
 
 api_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
@@ -54,3 +56,5 @@ api_router.include_router(settings_router, prefix="/settings", tags=["Settings"]
 api_router.include_router(services_router, prefix="/services", tags=["Services"])
 api_router.include_router(practice_areas_router, prefix="/practice-areas", tags=["Practice Areas"])
 api_router.include_router(hero_sliders_router, prefix="/hero-sliders", tags=["Hero Sliders"])
+api_router.include_router(section_content_router, prefix="/section-content", tags=["Section Content"])
+api_router.include_router(seo_router, prefix="/seo", tags=["SEO"])
