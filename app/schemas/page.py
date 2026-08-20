@@ -9,6 +9,7 @@ class PageBase(BaseModel):
     content: str
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
+    featured_image_url: Optional[str] = None
     is_published: bool = True
 
 class PageCreate(PageBase):
@@ -20,6 +21,7 @@ class PageUpdate(BaseModel):
     content: Optional[str] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
+    featured_image_url: Optional[str] = None
     is_published: Optional[bool] = None
 
 class PageResponse(PageBase):

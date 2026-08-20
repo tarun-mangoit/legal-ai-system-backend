@@ -22,6 +22,9 @@ from .endpoints.pages import router as pages_router
 from .testimonials.router import router as testimonials_router
 from .endpoints.contact import router as contact_router
 from .endpoints.services import router as services_router
+from .endpoints.practice_areas import router as practice_areas_router
+from .endpoints.hero_sliders import router as hero_sliders_router
+from .endpoints.settings import router as settings_router
 api_router = APIRouter()
 
 api_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
@@ -47,4 +50,7 @@ api_router.include_router(testimonials_router, prefix="/testimonials", tags=["Te
 from .public_cases.router import router as public_cases_router
 api_router.include_router(public_cases_router, prefix="/public-cases", tags=["Public Cases"])
 api_router.include_router(contact_router, prefix="/contact", tags=["Contact"])
+api_router.include_router(settings_router, prefix="/settings", tags=["Settings"])
 api_router.include_router(services_router, prefix="/services", tags=["Services"])
+api_router.include_router(practice_areas_router, prefix="/practice-areas", tags=["Practice Areas"])
+api_router.include_router(hero_sliders_router, prefix="/hero-sliders", tags=["Hero Sliders"])

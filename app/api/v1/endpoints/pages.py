@@ -60,6 +60,7 @@ async def create_page(
         content=page_in.content,
         meta_title=page_in.meta_title,
         meta_description=page_in.meta_description,
+        featured_image_url=page_in.featured_image_url,
         is_published=page_in.is_published
     )
     
@@ -67,6 +68,33 @@ async def create_page(
     await db.commit()
     await db.refresh(page)
     return page
+
+import os
+import shutil
+from fastapi import UploadFile, File
+
+UPLOAD_DIR = "uploads/pages"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.post("/admin/upload-image", response_model=dict, dependencies=[RequireAdmin])
+async def upload_page_image(
+    file: UploadFile = File(...)
+) -> Any:
+    """
+    Upload an image for a page (featured or inline).
+    """
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File provided is not an image.")
+        
+    ext = file.filename.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    image_url = f"/uploads/pages/{filename}"
+    return {"url": image_url}
 
 @router.put("/{id}", response_model=PageResponse, dependencies=[RequireAdmin])
 async def update_page(

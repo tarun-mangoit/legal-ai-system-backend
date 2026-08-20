@@ -21,8 +21,11 @@ from .case_message import CaseConversation, CaseMessage, CaseMessageAttachment, 
 from .blog import Blog, BlogCategory, BlogTag, BlogComment, BlogStatus
 from .page import Page
 from .testimonial import Testimonial
-
-__all__ = ["BaseModel", "User", "Role", "RefreshToken", "Case", "CaseHistory", "CaseAssignment", "CaseDocument", "AISummary", "OCRJob", "AIJob", "AIUsageLog", "LegalOpinion", "OpinionRevision", "OpinionComment", "Citation", "CitationCategory", "Report", "ReportTemplate", "ReportVersion", "ReportStatus", "Payment", "PaymentStatus", "PaymentTransaction", "Invoice", "Refund", "Notification", "NotificationTemplate", "NotificationPreference", "NotificationDeliveryLog", "NotificationQueue", "AdvocateProfile", "AdvocateDocument", "AuditLog", "CaseConversation", "CaseMessage", "CaseMessageAttachment", "CaseMessageRead", "ConversationType", "MessageType", "Blog", "BlogCategory", "BlogTag", "BlogComment", "BlogStatus", "Page", "Testimonial"]
 from .public_case import PublicCaseCategory, PublicCaseTag, PublicCase, public_case_tags
 from .contact import ContactSubmission
 from .service import Service
+from .hero_slider import HeroSlider
+from .settings import SiteSettings
+from .practice_area import PracticeArea
+
+__all__ = ["BaseModel", "User", "Role", "RefreshToken", "Case", "CaseHistory", "CaseAssignment", "CaseDocument", "AISummary", "OCRJob", "AIJob", "AIUsageLog", "LegalOpinion", "OpinionRevision", "OpinionComment", "Citation", "CitationCategory", "Report", "ReportTemplate", "ReportVersion", "ReportStatus", "Payment", "PaymentStatus", "PaymentTransaction", "Invoice", "Refund", "Notification", "NotificationTemplate", "NotificationPreference", "NotificationDeliveryLog", "NotificationQueue", "AdvocateProfile", "AdvocateDocument", "AuditLog", "CaseConversation", "CaseMessage", "CaseMessageAttachment", "CaseMessageRead", "ConversationType", "MessageType", "Blog", "BlogCategory", "BlogTag", "BlogComment", "BlogStatus", "Page", "Testimonial", "HeroSlider", "SiteSettings", "PracticeArea"]
