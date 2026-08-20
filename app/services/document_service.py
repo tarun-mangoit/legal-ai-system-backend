@@ -150,10 +150,12 @@ class DocumentService:
 
     async def get_all_documents(self, user: User, skip: int = 0, limit: int = 100) -> List[dict]:
         role_name = await self._get_user_role(user)
-        if role_name not in ["admin", "advocate"]:
+        if role_name not in ["admin", "advocate", "client"]:
             raise HTTPException(status_code=403, detail="Not authorized to view all documents")
             
-        results = await self.repository.get_all_documents_with_status(skip, limit)
+        advocate_id = user.id if role_name == "advocate" else None
+        client_id = user.id if role_name == "client" else None
+        results = await self.repository.get_all_documents_with_status(skip, limit, advocate_id, client_id)
         docs = []
         for doc, ai_status in results:
             doc_dict = doc.__dict__.copy()

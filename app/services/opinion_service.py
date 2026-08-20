@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 from fastapi import HTTPException
 from ..repositories.opinion_repository import LegalOpinionRepository, OpinionRevisionRepository, OpinionCommentRepository
 from ..models.legal_opinion import LegalOpinion, OpinionRevision, OpinionComment, OpinionStatus
@@ -22,8 +23,8 @@ class OpinionService:
             raise HTTPException(status_code=404, detail="Opinion not found")
         return opinion
 
-    async def get_all_opinions(self, skip: int = 0, limit: int = 100) -> list[LegalOpinion]:
-        return await self.opinion_repo.get_all(skip, limit)
+    async def get_all_opinions(self, skip: int = 0, limit: int = 100, advocate_id: Optional[uuid.UUID] = None, client_id: Optional[uuid.UUID] = None) -> list[LegalOpinion]:
+        return await self.opinion_repo.get_all(skip, limit, advocate_id, client_id)
 
     async def get_opinion_by_case(self, case_id: uuid.UUID) -> LegalOpinion:
         opinion = await self.opinion_repo.get_by_case_id(case_id)

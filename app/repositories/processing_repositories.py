@@ -110,8 +110,9 @@ class AIRepository:
         )
         return result.scalars().first()
 
-    async def get_all_jobs(self, skip: int = 0, limit: int = 100) -> list[tuple]:
+    async def get_all_jobs(self, skip: int = 0, limit: int = 100, advocate_id: Optional[uuid.UUID] = None) -> list[tuple]:
         from ..models.case_document import CaseDocument
+        from ..models.case import Case
         from sqlalchemy.orm import joinedload
         
         # We need to query AIJobs and OCRJobs, and we want the document info.
@@ -121,16 +122,22 @@ class AIRepository:
         ai_query = (
             select(AIJob, CaseDocument.original_filename, CaseDocument.case_id)
             .join(CaseDocument, AIJob.document_id == CaseDocument.id)
+            .join(Case, CaseDocument.case_id == Case.id)
             .order_by(AIJob.created_at.desc())
-            .offset(skip).limit(limit)
         )
+        if advocate_id:
+            ai_query = ai_query.where(Case.advocate_id == advocate_id)
+        ai_query = ai_query.offset(skip).limit(limit)
         
         ocr_query = (
             select(OCRJob, CaseDocument.original_filename, CaseDocument.case_id)
             .join(CaseDocument, OCRJob.document_id == CaseDocument.id)
+            .join(Case, CaseDocument.case_id == Case.id)
             .order_by(OCRJob.created_at.desc())
-            .offset(skip).limit(limit)
         )
+        if advocate_id:
+            ocr_query = ocr_query.where(Case.advocate_id == advocate_id)
+        ocr_query = ocr_query.offset(skip).limit(limit)
         
         ai_results = await self.session.execute(ai_query)
         ocr_results = await self.session.execute(ocr_query)

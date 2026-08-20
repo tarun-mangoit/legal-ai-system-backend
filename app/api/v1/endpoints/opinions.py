@@ -35,9 +35,12 @@ async def get_all_opinions(
     db: AsyncSession = Depends(get_db)
 ):
     role = await db.get(Role, current_user.role_id)
-    if role.name == "client":
-        raise HTTPException(status_code=403, detail="Clients cannot list all opinions")
-    return await service.get_all_opinions(skip, limit)
+    if role.name not in ["admin", "advocate", "client"]:
+        raise HTTPException(status_code=403, detail="Not authorized to list opinions")
+        
+    advocate_id = current_user.id if role.name == "advocate" else None
+    client_id = current_user.id if role.name == "client" else None
+    return await service.get_all_opinions(skip, limit, advocate_id, client_id)
 
 @router.post("", response_model=LegalOpinionResponse, status_code=201)
 async def create_opinion(
@@ -60,8 +63,12 @@ async def get_opinion(
 ):
     opinion = await service.get_opinion(opinion_id)
     role = await db.get(Role, current_user.role_id)
-    if role.name == "client" and not opinion.is_final:
-        raise HTTPException(status_code=404, detail="Opinion not found or not finalized")
+    if role.name == "client":
+        from app.models.case import CaseStatus
+        if opinion.case and opinion.case.status in [CaseStatus.NEW, CaseStatus.PAYMENT_PENDING]:
+            raise HTTPException(status_code=403, detail="Payment is required to view the legal opinion")
+        if not opinion.is_final:
+            raise HTTPException(status_code=404, detail="Opinion not found or not finalized")
     return opinion
 
 @router.put("/{opinion_id}", response_model=LegalOpinionResponse)
@@ -140,6 +147,10 @@ async def get_opinion_by_case(
 ):
     opinion = await service.get_opinion_by_case(case_id)
     role = await db.get(Role, current_user.role_id)
-    if role.name == "client" and not opinion.is_final:
-        raise HTTPException(status_code=404, detail="Opinion not found or not finalized")
+    if role.name == "client":
+        from app.models.case import CaseStatus
+        if opinion.case and opinion.case.status in [CaseStatus.NEW, CaseStatus.PAYMENT_PENDING]:
+            raise HTTPException(status_code=403, detail="Payment is required to view the legal opinion")
+        if not opinion.is_final:
+            raise HTTPException(status_code=404, detail="Opinion not found or not finalized")
     return opinion

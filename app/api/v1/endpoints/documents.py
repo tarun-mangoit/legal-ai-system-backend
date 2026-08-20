@@ -49,7 +49,7 @@ async def get_all_documents(
     service: DocumentService = Depends(get_document_service)
 ):
     """
-    List all documents in the system with their AI status (Admin/Advocate only).
+    List all documents in the system with their AI status (Admin/Advocate/Client).
     """
     return await service.get_all_documents(current_user, skip, limit)
 

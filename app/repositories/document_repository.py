@@ -61,21 +61,27 @@ class DocumentRepository:
         )
         return result.scalars().first()
 
-    async def get_all_documents_with_status(self, skip: int = 0, limit: int = 100) -> List[tuple]:
+    async def get_all_documents_with_status(self, skip: int = 0, limit: int = 100, advocate_id: Optional[uuid.UUID] = None, client_id: Optional[uuid.UUID] = None) -> List[tuple]:
         from ..models.job_tracking import AIJob
         from ..models.case import Case
         from sqlalchemy.orm import joinedload
         query = (
             select(CaseDocument, AIJob.status)
             .outerjoin(AIJob, CaseDocument.id == AIJob.document_id)
+            .join(Case, CaseDocument.case_id == Case.id)
             .options(
                 joinedload(CaseDocument.case).joinedload(Case.client),
                 joinedload(CaseDocument.case).joinedload(Case.advocate)
             )
             .where(CaseDocument.is_deleted == False)
-            .order_by(CaseDocument.created_at.desc())
-            .offset(skip)
-            .limit(limit)
         )
+        
+        if advocate_id:
+            query = query.where(Case.advocate_id == advocate_id)
+        if client_id:
+            query = query.where(Case.client_id == client_id)
+            
+        query = query.order_by(CaseDocument.created_at.desc()).offset(skip).limit(limit)
+        
         result = await self.session.execute(query)
         return result.all()

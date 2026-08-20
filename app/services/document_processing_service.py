@@ -88,7 +88,8 @@ class DocumentProcessingService:
         if role_name not in ["admin", "advocate"]:
             raise HTTPException(status_code=403, detail="Not authorized to view all jobs")
             
-        raw_jobs = await self.ai_repo.get_all_jobs(skip, limit)
+        advocate_id = user.id if role_name == "advocate" else None
+        raw_jobs = await self.ai_repo.get_all_jobs(skip, limit, advocate_id)
         jobs = []
         for item in raw_jobs:
             job = item["job"]

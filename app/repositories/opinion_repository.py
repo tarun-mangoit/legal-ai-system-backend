@@ -11,6 +11,7 @@ class LegalOpinionRepository:
 
     async def get_by_id(self, opinion_id: uuid.UUID) -> Optional[LegalOpinion]:
         stmt = select(LegalOpinion).options(
+            joinedload(LegalOpinion.case),
             joinedload(LegalOpinion.revisions),
             joinedload(LegalOpinion.comments)
         ).where(LegalOpinion.id == opinion_id)
@@ -19,19 +20,31 @@ class LegalOpinionRepository:
 
     async def get_by_case_id(self, case_id: uuid.UUID) -> Optional[LegalOpinion]:
         stmt = select(LegalOpinion).options(
+            joinedload(LegalOpinion.case),
             joinedload(LegalOpinion.revisions),
             joinedload(LegalOpinion.comments)
         ).where(LegalOpinion.case_id == case_id)
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> List[LegalOpinion]:
+    async def get_all(self, skip: int = 0, limit: int = 100, advocate_id: Optional[uuid.UUID] = None, client_id: Optional[uuid.UUID] = None) -> List[LegalOpinion]:
+        from ..models.case import Case
         stmt = select(LegalOpinion).options(
             joinedload(LegalOpinion.case),
             joinedload(LegalOpinion.advocate),
             joinedload(LegalOpinion.revisions),
             joinedload(LegalOpinion.comments)
-        ).order_by(desc(LegalOpinion.created_at)).offset(skip).limit(limit)
+        )
+        if advocate_id:
+            stmt = stmt.join(Case, LegalOpinion.case_id == Case.id).where(Case.advocate_id == advocate_id)
+        elif client_id:
+            from ..models.case import CaseStatus
+            stmt = stmt.join(Case, LegalOpinion.case_id == Case.id).where(
+                Case.client_id == client_id,
+                Case.status.not_in([CaseStatus.NEW, CaseStatus.PAYMENT_PENDING])
+            )
+            
+        stmt = stmt.order_by(desc(LegalOpinion.created_at)).offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().unique().all())
 
