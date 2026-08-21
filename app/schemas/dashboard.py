@@ -26,6 +26,9 @@ class AdvocateDashboardResponse(BaseModel):
     pending_reviews: int
     completed_reviews: int
     recent_assignments: List[RecentCaseResponse]
+    avg_turnaround_days: str
+    completed_this_month: int
+    client_rating: str
 
 class AdminDashboardResponse(BaseModel):
     total_users: int

@@ -187,7 +187,7 @@ class NotificationEventHandler:
         logger.info(f"Event: AIProcessingCompleted for {case_number}")
         await self.notification_service.send_notification(
             db=db, user_id=user_id, channel=NotificationChannel.IN_APP,
-            title="AI Analysis Complete", message=f"AI processing finished for case {case_number}.",
+            title="Analysis Complete", message=f"Analysis finished for case {case_number}.",
             priority=0, category=NotificationCategory.AI, action_url=self._get_case_url(case_id)
         )
 

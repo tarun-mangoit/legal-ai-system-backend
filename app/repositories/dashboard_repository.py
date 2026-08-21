@@ -92,11 +92,32 @@ class DashboardRepository:
             for row in recent_assignments_result.all()
         ]
 
+        completed_this_month = await db.scalar(
+            select(func.count()).select_from(Case).where(
+                Case.advocate_id == user_id, 
+                Case.status.in_([CaseStatus.OPINION_GENERATED, CaseStatus.REPORT_GENERATED, CaseStatus.COMPLETED]),
+                func.date_trunc('month', Case.updated_at) == func.date_trunc('month', func.current_date())
+            )
+        ) or 0
+        
+        avg_turnaround = await db.scalar(
+            select(func.avg(func.extract('epoch', Case.updated_at - Case.created_at)) / 86400.0)
+            .select_from(Case)
+            .where(
+                Case.advocate_id == user_id,
+                Case.status.in_([CaseStatus.OPINION_GENERATED, CaseStatus.REPORT_GENERATED, CaseStatus.COMPLETED])
+            )
+        )
+        avg_turnaround_str = f"{float(avg_turnaround):.1f} Days" if avg_turnaround else "N/A"
+        
         return {
             "assigned_cases": assigned_cases,
             "pending_reviews": pending_reviews,
             "completed_reviews": completed_reviews,
-            "recent_assignments": recent_assignments
+            "recent_assignments": recent_assignments,
+            "avg_turnaround_days": avg_turnaround_str,
+            "completed_this_month": completed_this_month,
+            "client_rating": "N/A"
         }
 
     async def get_admin_stats(self, db: AsyncSession) -> Dict[str, Any]:
