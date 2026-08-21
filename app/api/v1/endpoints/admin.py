@@ -108,26 +108,80 @@ async def get_admin_notification_detail(
 
 @router.get("/advocate-applications")
 async def get_advocate_applications(
+    search: Optional[str] = None,
     status: Optional[str] = None,
+    created_from: Optional[str] = None,
+    created_to: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = RequireAdmin
 ):
-    query = select(User).join(Role, User.role_id == Role.id).where(Role.name == "advocate")
+    query = select(User).join(Role, User.role_id == Role.id).outerjoin(AdvocateProfile, User.id == AdvocateProfile.user_id).where(Role.name == "advocate")
+    
     if status:
         query = query.where(User.status == status)
         
+    if created_from:
+        try:
+            from_date = datetime.fromisoformat(created_from)
+            query = query.where(User.created_at >= from_date)
+        except ValueError:
+            pass
+            
+    if created_to:
+        try:
+            to_date = datetime.fromisoformat(created_to)
+            query = query.where(User.created_at <= to_date)
+        except ValueError:
+            pass
+        
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(or_(
+            User.first_name.ilike(search_term),
+            User.last_name.ilike(search_term),
+            User.email.ilike(search_term),
+            AdvocateProfile.bar_council_number.ilike(search_term)
+        ))
+        
+    # Count total
+    total_query = select(func.count()).select_from(query.subquery())
+    total_res = await db.execute(total_query)
+    total_count = total_res.scalar_one()
+
+    # Sorting
+    valid_sort_fields = {
+        "first_name": User.first_name,
+        "last_name": User.last_name,
+        "email": User.email,
+        "status": User.status,
+        "created_at": User.created_at,
+    }
+    
+    sort_column = valid_sort_fields.get(sort_by, User.created_at)
+    if sort_order.lower() == "asc":
+        query = query.order_by(asc(sort_column))
+    else:
+        query = query.order_by(desc(sort_column))
+        
+    # Pagination
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size)
+    
     result = await db.execute(query)
     users = result.scalars().all()
     
-    # Normally we would use schemas and relationship loading, keeping it simple for now
+    # Load profile manually for the returned page
     apps = []
     for u in users:
-        # Load profile manually
         p_res = await db.execute(select(AdvocateProfile).where(AdvocateProfile.user_id == u.id))
         prof = p_res.scalars().first()
         
         apps.append({
-            "id": u.id,
+            "id": str(u.id),
             "first_name": u.first_name,
             "last_name": u.last_name,
             "email": u.email,
@@ -136,7 +190,17 @@ async def get_advocate_applications(
             "created_at": u.created_at
         })
         
-    return apps
+    return {
+        "items": apps,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size,
+            "has_next": (page * page_size) < total_count,
+            "has_previous": page > 1
+        }
+    }
 
 @router.post("/advocates", status_code=201)
 async def create_advocate_by_admin(

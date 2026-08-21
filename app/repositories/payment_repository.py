@@ -1,7 +1,8 @@
 import uuid
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func, or_
+from datetime import datetime
 from app.models.payment import Payment, PaymentTransaction, Invoice, Refund
 
 class PaymentRepository:
@@ -31,6 +32,50 @@ class PaymentRepository:
     async def get_all_payments(self) -> List[Payment]:
         result = await self.db.execute(select(Payment))
         return list(result.scalars().all())
+
+    async def get_payment_history(
+        self, 
+        skip: int = 0, 
+        limit: int = 100, 
+        client_id: Optional[uuid.UUID] = None,
+        q: Optional[str] = None,
+        status: Optional[str] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None
+    ):
+        query = select(Payment)
+        
+        if client_id:
+            query = query.where(Payment.client_id == client_id)
+            
+        if status:
+            query = query.where(Payment.status == status)
+            
+        if from_date:
+            query = query.where(Payment.created_at >= from_date)
+            
+        if to_date:
+            query = query.where(Payment.created_at <= to_date)
+            
+        if q:
+            query = query.where(
+                or_(
+                    Payment.gateway_order_id.ilike(f"%{q}%"),
+                    Payment.gateway_payment_id.ilike(f"%{q}%")
+                )
+            )
+            
+        # Get total count
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar() or 0
+        
+        # Get paginated results
+        query = query.order_by(Payment.created_at.desc()).offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        items = list(result.scalars().all())
+        
+        return items, total
 
     async def update_payment(self, payment_id: uuid.UUID, data: dict) -> Optional[Payment]:
         await self.db.execute(

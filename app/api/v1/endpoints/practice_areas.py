@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from app.dependencies import get_db_session, RequireAdmin
@@ -11,11 +11,36 @@ router = APIRouter()
 
 @router.get("/public", response_model=List[PracticeAreaResponse])
 async def get_public_practice_areas(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
-    return await practice_area_manager.get_all(db, skip=skip, limit=limit, public_only=True)
+    items, count = await practice_area_manager.get_all(db, skip=skip, limit=limit, public_only=True)
+    return items
 
-@router.get("/", response_model=List[PracticeAreaResponse], dependencies=[RequireAdmin])
-async def get_practice_areas(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
-    return await practice_area_manager.get_all(db, skip=skip, limit=limit, public_only=False)
+@router.get("", dependencies=[RequireAdmin])
+async def get_practice_areas(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = 'sort_order',
+    sort_order: str = 'asc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db_session)
+):
+    skip = (page - 1) * page_size
+    areas, total_count = await practice_area_manager.get_all(
+        db, skip=skip, limit=page_size, public_only=False,
+        search=search, status=status, sort_by=sort_by, sort_order=sort_order
+    )
+    
+    items = [PracticeAreaResponse.model_validate(a).model_dump(mode='json') for a in areas]
+    
+    return {
+        "items": items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.post("/", response_model=PracticeAreaResponse, status_code=status.HTTP_201_CREATED, dependencies=[RequireAdmin])
 async def create_practice_area(area_in: PracticeAreaCreate, db: AsyncSession = Depends(get_db_session)):

@@ -62,16 +62,60 @@ async def submit_contact_form(
     
     return submission
 
-@router.get("/admin", response_model=List[ContactResponse], dependencies=[RequireAdmin])
+@router.get("/admin", dependencies=[RequireAdmin])
 async def get_all_submissions(
-    skip: int = 0, 
-    limit: int = 100, 
+    search: str = None,
+    is_resolved: bool = None,
+    sort_by: str = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Admin endpoint to view all contact submissions.
+    Admin endpoint to view all contact submissions with pagination, sorting, and filtering.
     """
-    return await contact_service.get_all(db, skip=skip, limit=limit)
+    from sqlalchemy import select, func, desc, asc
+    from app.models.contact import ContactSubmission
+    
+    skip = (page - 1) * page_size
+    query = select(ContactSubmission)
+    count_query = select(func.count(ContactSubmission.id))
+    
+    conditions = []
+    if search:
+        search_filter = ContactSubmission.name.ilike(f"%{search}%") | ContactSubmission.email.ilike(f"%{search}%") | ContactSubmission.message.ilike(f"%{search}%")
+        conditions.append(search_filter)
+        
+    if is_resolved is not None:
+        conditions.append(ContactSubmission.is_resolved == is_resolved)
+        
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(ContactSubmission, sort_by):
+        column = getattr(ContactSubmission, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(ContactSubmission.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [ContactResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.put("/admin/{id}/resolve", response_model=ContactResponse, dependencies=[RequireAdmin])
 async def toggle_submission_resolution(

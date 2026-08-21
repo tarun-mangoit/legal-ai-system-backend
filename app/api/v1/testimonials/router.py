@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 import os
 import aiofiles
@@ -19,15 +19,36 @@ async def get_public_testimonials(skip: int = 0, limit: int = 100, db: AsyncSess
     """
     return await testimonial_service.get_active(db, skip=skip, limit=limit)
 
-@router.get("/", response_model=List[TestimonialResponse], dependencies=[RequireAdmin])
+@router.get("", dependencies=[RequireAdmin])
 async def get_testimonials(
-    skip: int = 0, limit: int = 100, 
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db_session)
 ):
     """
     Get all testimonials (Admin only).
     """
-    return await testimonial_service.get_all(db, skip=skip, limit=limit)
+    skip = (page - 1) * page_size
+    items, total_count = await testimonial_service.get_all(
+        db, skip=skip, limit=page_size,
+        search=search, status=status, sort_by=sort_by, sort_order=sort_order
+    )
+    
+    formatted_items = [TestimonialResponse.model_validate(i).model_dump(mode='json') for i in items]
+    
+    return {
+        "items": formatted_items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.post("/", response_model=TestimonialResponse, status_code=status.HTTP_201_CREATED, dependencies=[RequireAdmin])
 async def create_testimonial(

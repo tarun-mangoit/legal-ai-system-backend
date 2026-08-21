@@ -1,9 +1,9 @@
 import uuid
-from typing import Any, List
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_, desc, asc, func
 
 from app.database.session import get_db
 from app.models.page import Page
@@ -12,17 +12,66 @@ from app.dependencies import get_current_user, RequireAdmin
 
 router = APIRouter()
 
-@router.get("", response_model=List[PageResponse])
+@router.get("")
 async def get_all_pages(
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("created_at"),
+    sort_order: Optional[str] = Query("desc"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Get all pages.
+    Get all pages (paginated).
     """
-    query = select(Page).order_by(Page.created_at.desc())
+    conditions = []
+    if search:
+        conditions.append(or_(Page.title.ilike(f"%{search}%"), Page.slug.ilike(f"%{search}%")))
+        
+    if status == 'published':
+        conditions.append(Page.is_published == True)
+    elif status == 'draft':
+        conditions.append(Page.is_published == False)
+        
+    query = select(Page)
+    count_query = select(func.count(Page.id))
+    
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(Page, sort_by):
+        column = getattr(Page, sort_by)
+        if sort_order == "desc":
+            query = query.order_by(desc(column))
+        else:
+            query = query.order_by(asc(column))
+    else:
+        query = query.order_by(Page.created_at.desc())
+        
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    
     result = await db.execute(query)
     pages = result.scalars().all()
-    return pages
+    
+    items = [PageResponse.model_validate(p).model_dump(mode='json') for p in pages]
+    
+    return {
+        "items": items,
+        "summary": { # Optional summary if needed
+            "total": total_count
+        },
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.get("/{slug}", response_model=PageResponse)
 async def get_page_by_slug(

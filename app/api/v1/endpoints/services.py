@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from app.dependencies import get_db_session, RequireAdmin
@@ -13,9 +13,33 @@ router = APIRouter()
 async def get_public_services(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
     return await service_manager.get_all(db, skip=skip, limit=limit, public_only=True)
 
-@router.get("/", response_model=List[ServiceResponse], dependencies=[RequireAdmin])
-async def get_services(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
-    return await service_manager.get_all(db, skip=skip, limit=limit, public_only=False)
+@router.get("", dependencies=[RequireAdmin])
+async def get_services(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = 'sort_order',
+    sort_order: str = 'asc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db_session)
+):
+    skip = (page - 1) * page_size
+    services, total_count = await service_manager.get_all(
+        db, skip=skip, limit=page_size, public_only=False,
+        search=search, status=status, sort_by=sort_by, sort_order=sort_order
+    )
+    
+    items = [ServiceResponse.model_validate(s).model_dump(mode='json') for s in services]
+    
+    return {
+        "items": items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.post("/", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED, dependencies=[RequireAdmin])
 async def create_service(service_in: ServiceCreate, db: AsyncSession = Depends(get_db_session)):

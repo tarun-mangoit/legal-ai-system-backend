@@ -161,7 +161,26 @@ class PaymentService:
         
         return True
 
-    async def get_payment_history(self, client_id: Optional[uuid.UUID] = None) -> List[Payment]:
-        if client_id:
-            return await self.repository.get_payments_by_client(client_id)
-        return await self.repository.get_all_payments()
+    async def get_payment_history(
+        self, 
+        skip: int = 0, 
+        limit: int = 100, 
+        client_id: Optional[uuid.UUID] = None,
+        q: Optional[str] = None,
+        status: Optional[str] = None,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None
+    ):
+        import dateutil.parser
+        parsed_from_date = dateutil.parser.parse(from_date) if from_date else None
+        parsed_to_date = dateutil.parser.parse(to_date) if to_date else None
+        
+        return await self.repository.get_payment_history(
+            skip=skip,
+            limit=limit,
+            client_id=client_id,
+            q=q,
+            status=status,
+            from_date=parsed_from_date,
+            to_date=parsed_to_date
+        )

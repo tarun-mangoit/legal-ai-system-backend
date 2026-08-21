@@ -146,7 +146,8 @@ class DashboardRepository:
         ) or 0.0
 
         latest_registrations_result = await db.execute(
-            select(User.id, User.first_name, User.last_name, User.email, User.created_at)
+            select(User.id, User.first_name, User.last_name, User.email, User.created_at, Role.name.label('role'))
+            .join(Role, User.role_id == Role.id)
             .order_by(desc(User.created_at))
             .limit(5)
         )
@@ -154,8 +155,10 @@ class DashboardRepository:
         latest_registrations = [
             {
                 "id": str(row.id),
-                "name": f"{row.first_name or ''} {row.last_name or ''}".strip() or row.email,
+                "first_name": row.first_name,
+                "last_name": row.last_name,
                 "email": row.email,
+                "role": str(row.role).upper(),
                 "created_at": row.created_at.isoformat() if row.created_at else None
             }
             for row in latest_registrations_result.all()

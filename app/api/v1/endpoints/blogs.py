@@ -152,6 +152,50 @@ async def add_comment(
     return comment
 
 # Admin Routes below
+
+@router.get("/admin/categories", dependencies=[RequireAdmin])
+async def get_admin_categories(
+    search: Optional[str] = None,
+    sort_by: Optional[str] = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    from sqlalchemy import or_, desc, asc
+    skip = (page - 1) * page_size
+    
+    query = select(BlogCategory)
+    count_query = select(func.count(BlogCategory.id))
+    
+    if search:
+        condition = or_(BlogCategory.name.ilike(f"%{search}%"), BlogCategory.slug.ilike(f"%{search}%"))
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(BlogCategory, sort_by):
+        column = getattr(BlogCategory, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(BlogCategory.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [BlogCategoryResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
+
 @router.post("/admin/categories", response_model=BlogCategoryResponse, dependencies=[RequireAdmin])
 async def create_category(
     category_in: BlogCategoryCreate,
@@ -171,6 +215,49 @@ async def create_category(
     await db.refresh(db_obj)
     return db_obj
 
+@router.get("/admin/tags", dependencies=[RequireAdmin])
+async def get_admin_tags(
+    search: Optional[str] = None,
+    sort_by: Optional[str] = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    from sqlalchemy import or_, desc, asc
+    skip = (page - 1) * page_size
+    
+    query = select(BlogTag)
+    count_query = select(func.count(BlogTag.id))
+    
+    if search:
+        condition = or_(BlogTag.name.ilike(f"%{search}%"), BlogTag.slug.ilike(f"%{search}%"))
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(BlogTag, sort_by):
+        column = getattr(BlogTag, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(BlogTag.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [BlogTagResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
+
 @router.post("/admin/tags", response_model=BlogTagResponse, dependencies=[RequireAdmin])
 async def create_tag(
     tag_in: BlogTagCreate,
@@ -189,24 +276,127 @@ async def create_tag(
     await db.refresh(db_obj)
     return db_obj
 
-@router.get("/admin/comments", response_model=List[AdminCommentResponse], dependencies=[RequireAdmin])
-async def get_all_comments(
+@router.get("/admin/posts", dependencies=[RequireAdmin])
+async def get_admin_blogs(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Get all comments for admin review.
+    Get all blogs for admin review (including drafts).
     """
-    query = select(BlogComment).options(selectinload(BlogComment.blog)).order_by(BlogComment.created_at.desc())
-    result = await db.execute(query)
-    comments = result.scalars().all()
+    from sqlalchemy import or_, desc, asc
+    skip = (page - 1) * page_size
     
-    return [
+    query = select(Blog).options(
+        selectinload(Blog.author),
+        selectinload(Blog.category),
+        selectinload(Blog.tags)
+    )
+    count_query = select(func.count(Blog.id))
+    
+    conditions = []
+    if search:
+        conditions.append(Blog.title.ilike(f"%{search}%"))
+        
+    if status == 'published':
+        conditions.append(Blog.status == BlogStatus.PUBLISHED)
+    elif status == 'draft':
+        conditions.append(Blog.status == BlogStatus.DRAFT)
+        
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(Blog, sort_by):
+        column = getattr(Blog, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(Blog.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [BlogResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
+
+@router.get("/admin/comments", dependencies=[RequireAdmin])
+async def get_all_comments(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Get all comments for admin review with pagination.
+    """
+    from sqlalchemy import or_, desc, asc
+    skip = (page - 1) * page_size
+    
+    query = select(BlogComment).options(selectinload(BlogComment.blog))
+    count_query = select(func.count(BlogComment.id))
+    
+    conditions = []
+    if search:
+        conditions.append(or_(BlogComment.name.ilike(f"%{search}%"), BlogComment.content.ilike(f"%{search}%")))
+        
+    if status == 'approved':
+        conditions.append(BlogComment.is_approved == True)
+    elif status == 'pending':
+        conditions.append(BlogComment.is_approved == False)
+        
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(BlogComment, sort_by):
+        column = getattr(BlogComment, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(BlogComment.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    formatted_items = [
         AdminCommentResponse(
             **{k: getattr(c, k) for k in BlogCommentResponse.model_fields.keys()},
             blog_title=c.blog.title if c.blog else "Unknown",
             blog_slug=c.blog.slug if c.blog else ""
-        ) for c in comments
+        ).model_dump(mode='json') for c in items
     ]
+    
+    return {
+        "items": formatted_items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.put("/admin/comments/{id}/toggle-approval", response_model=BlogCommentResponse, dependencies=[RequireAdmin])
 async def toggle_comment_approval(

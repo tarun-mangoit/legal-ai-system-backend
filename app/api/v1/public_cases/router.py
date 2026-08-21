@@ -108,9 +108,46 @@ async def get_public_case_by_slug(slug: str, db: AsyncSession = Depends(get_db_s
 
 # --- Admin Routes: Categories ---
 
-@router.get("/categories", response_model=List[PublicCaseCategoryResponse], dependencies=[RequireAdmin])
-async def get_categories(db: AsyncSession = Depends(get_db_session)):
-    return await public_case_category_service.get_all(db)
+@router.get("/categories", dependencies=[RequireAdmin])
+async def get_categories(
+    search: str = None,
+    sort_by: str = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db_session)
+):
+    from sqlalchemy import desc, asc
+    skip = (page - 1) * page_size
+    query = select(PublicCaseCategory)
+    count_query = select(func.count(PublicCaseCategory.id))
+    
+    if search:
+        query = query.where(PublicCaseCategory.name.ilike(f"%{search}%"))
+        count_query = count_query.where(PublicCaseCategory.name.ilike(f"%{search}%"))
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(PublicCaseCategory, sort_by):
+        column = getattr(PublicCaseCategory, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(PublicCaseCategory.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [PublicCaseCategoryResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.post("/categories", response_model=PublicCaseCategoryResponse, status_code=status.HTTP_201_CREATED, dependencies=[RequireAdmin])
 async def create_category(category_in: PublicCaseCategoryCreate, db: AsyncSession = Depends(get_db_session)):
@@ -125,9 +162,46 @@ async def delete_category(id: UUID, db: AsyncSession = Depends(get_db_session)):
 
 # --- Admin Routes: Tags ---
 
-@router.get("/tags", response_model=List[PublicCaseTagResponse], dependencies=[RequireAdmin])
-async def get_tags(db: AsyncSession = Depends(get_db_session)):
-    return await public_case_tag_service.get_all(db)
+@router.get("/tags", dependencies=[RequireAdmin])
+async def get_tags(
+    search: str = None,
+    sort_by: str = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db_session)
+):
+    from sqlalchemy import desc, asc
+    skip = (page - 1) * page_size
+    query = select(PublicCaseTag)
+    count_query = select(func.count(PublicCaseTag.id))
+    
+    if search:
+        query = query.where(PublicCaseTag.name.ilike(f"%{search}%"))
+        count_query = count_query.where(PublicCaseTag.name.ilike(f"%{search}%"))
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(PublicCaseTag, sort_by):
+        column = getattr(PublicCaseTag, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(PublicCaseTag.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [PublicCaseTagResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.post("/tags", response_model=PublicCaseTagResponse, status_code=status.HTTP_201_CREATED, dependencies=[RequireAdmin])
 async def create_tag(tag_in: PublicCaseTagCreate, db: AsyncSession = Depends(get_db_session)):
@@ -159,9 +233,58 @@ async def upload_general_case_image(file: UploadFile = File(...)):
     public_url = f"/uploads/public_cases/{filename}"
     return {"cover_image_url": public_url}
 
-@router.get("/", response_model=List[PublicCaseResponse], dependencies=[RequireAdmin])
-async def get_cases(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
-    return await public_case_service.get_all(db, skip=skip, limit=limit)
+@router.get("/", dependencies=[RequireAdmin])
+async def get_cases(
+    search: str = None,
+    is_active: bool = None,
+    sort_by: str = 'created_at',
+    sort_order: str = 'desc',
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db_session)
+):
+    from sqlalchemy import desc, asc
+    skip = (page - 1) * page_size
+    
+    query = select(PublicCase).options(
+        selectinload(PublicCase.category),
+        selectinload(PublicCase.tags)
+    )
+    count_query = select(func.count(PublicCase.id))
+    
+    conditions = []
+    if search:
+        conditions.append(PublicCase.title.ilike(f"%{search}%"))
+        
+    if is_active is not None:
+        conditions.append(PublicCase.is_active == is_active)
+        
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+        
+    total_result = await db.execute(count_query)
+    total_count = total_result.scalar() or 0
+    
+    if hasattr(PublicCase, sort_by):
+        column = getattr(PublicCase, sort_by)
+        query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+    else:
+        query = query.order_by(PublicCase.created_at.desc())
+        
+    query = query.offset(skip).limit(page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [PublicCaseResponse.model_validate(i).model_dump(mode='json') for i in items],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total_count,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+    }
 
 @router.post("/", response_model=PublicCaseResponse, status_code=status.HTTP_201_CREATED, dependencies=[RequireAdmin])
 async def create_case(case_in: PublicCaseCreate, db: AsyncSession = Depends(get_db_session)):

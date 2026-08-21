@@ -13,7 +13,8 @@ from app.services.pdf_service import PDFService
 from app.services.storage.local import LocalStorageProvider
 from app.schemas.payment import (
     OrderCreateRequest, PaymentVerifyRequest, RefundRequest, 
-    PaymentResponse, InvoiceResponse, RefundResponse
+    PaymentResponse, InvoiceResponse, RefundResponse,
+    PaginatedPaymentResponse
 )
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -79,8 +80,14 @@ async def razorpay_webhook(
     await services["payment"].handle_webhook(payload, x_razorpay_signature, secret)
     return {"status": "ok"}
 
-@router.get("/history", response_model=List[PaymentResponse])
+@router.get("/history", response_model=PaginatedPaymentResponse)
 async def get_payment_history(
+    page: int = Query(0, ge=0),
+    size: int = Query(10, gt=0, le=100),
+    q: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
     client_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     services: dict = Depends(get_services),
@@ -92,12 +99,28 @@ async def get_payment_history(
     target_id: Optional[str] = str(current_user.id)
     if role and role.name.lower() == "admin":
         target_id = client_id # Can be None, which fetches all payments
-    
-    print(f"DEBUG payments/history: role={role.name if role else None}, current_user={current_user.id}, client_id={client_id}, target_id={target_id}")
         
     import uuid
     parsed_target_id = uuid.UUID(target_id) if target_id else None
-    return await services["payment"].get_payment_history(parsed_target_id)
+    
+    items, total = await services["payment"].get_payment_history(
+        skip=page * size,
+        limit=size,
+        client_id=parsed_target_id,
+        q=q,
+        status=status,
+        from_date=from_date,
+        to_date=to_date
+    )
+    
+    import math
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": math.ceil(total / size) if size > 0 else 0
+    }
 
 @router.post("/refund", response_model=RefundResponse)
 async def request_refund(

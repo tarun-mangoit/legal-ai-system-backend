@@ -60,3 +60,10 @@ class RefundResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class PaginatedPaymentResponse(BaseModel):
+    items: List[PaymentResponse]
+    total: int
+    page: int
+    size: int
+    pages: int

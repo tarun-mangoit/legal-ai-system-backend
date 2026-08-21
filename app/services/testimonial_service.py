@@ -6,8 +6,12 @@ from app.schemas.testimonial import TestimonialCreate, TestimonialUpdate
 from app.repositories.testimonial_repository import testimonial_repo
 
 class TestimonialService:
-    async def get_all(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Testimonial]:
-        return await testimonial_repo.get_multi(db, skip=skip, limit=limit)
+    async def get_all(self, db: AsyncSession, skip: int = 0, limit: int = 100,
+                      search: Optional[str] = None, status: Optional[str] = None,
+                      sort_by: Optional[str] = 'created_at', sort_order: str = 'desc') -> tuple[List[Testimonial], int]:
+        return await testimonial_repo.get_all_paginated(
+            db, skip=skip, limit=limit, search=search, status=status, sort_by=sort_by, sort_order=sort_order
+        )
 
     async def get_active(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Testimonial]:
         return await testimonial_repo.get_active_testimonials(db, skip=skip, limit=limit)
