@@ -11,7 +11,8 @@ router = APIRouter()
 
 @router.get("/public", response_model=List[ServiceResponse])
 async def get_public_services(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
-    return await service_manager.get_all(db, skip=skip, limit=limit, public_only=True)
+    services, _ = await service_manager.get_all(db, skip=skip, limit=limit, public_only=True)
+    return services
 
 @router.get("", dependencies=[RequireAdmin])
 async def get_services(
