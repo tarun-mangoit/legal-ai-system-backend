@@ -14,7 +14,8 @@ class TestimonialService:
         )
 
     async def get_active(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Testimonial]:
-        return await testimonial_repo.get_active_testimonials(db, skip=skip, limit=limit)
+        items, _ = await testimonial_repo.get_active_testimonials(db, skip=skip, limit=limit)
+        return items
 
     async def get_by_id(self, db: AsyncSession, id: UUID) -> Optional[Testimonial]:
         return await testimonial_repo.get(db, id=id)
