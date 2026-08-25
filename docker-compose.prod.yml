@@ -11,6 +11,8 @@ services:
       - "8001:8000"
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./uploads:/app/uploads
     depends_on:
@@ -24,6 +26,8 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./uploads:/app/uploads
     depends_on:
