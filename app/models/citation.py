@@ -1,41 +1,33 @@
-import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+import enum
+from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum as SQLEnum, DateTime, JSON
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from .base import Base
+from .base import BaseModel
 
-class CitationCategory(Base):
-    __tablename__ = "citation_categories"
+class CitationVerificationStatus(str, enum.Enum):
+    AI_SUGGESTED = "AI_SUGGESTED"
+    ADVOCATE_VERIFIED = "ADVOCATE_VERIFIED"
+    REJECTED = "REJECTED"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, nullable=False, unique=True)
-    description = Column(Text, nullable=True)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    citations = relationship("Citation", back_populates="category")
-
-
-class Citation(Base):
+class Citation(BaseModel):
     __tablename__ = "citations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title = Column(String, nullable=False)
-    reference_number = Column(String, nullable=False, index=True)
-    court = Column(String, nullable=False)
-    jurisdiction = Column(String, nullable=False)
-    citation_type = Column(String, nullable=False)  # e.g., 'Case Law', 'Statute'
-    description = Column(Text, nullable=True)
-    keywords = Column(ARRAY(String), default=[])
-    summary = Column(Text, nullable=True)
-    url = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
+    case_name = Column(String, nullable=False, index=True)
+    citation = Column(String, nullable=False, unique=True, index=True)
+    court = Column(String, nullable=True)
+    year = Column(Integer, nullable=True)
+    legal_area = Column(String, nullable=True)
+    principle = Column(Text, nullable=True)
+    full_text = Column(Text, nullable=True)
+    source = Column(String, nullable=True)
     
-    category_id = Column(UUID(as_uuid=True), ForeignKey("citation_categories.id"), nullable=True)
+    verified = Column(SQLEnum(CitationVerificationStatus, name="citation_verification_status_enum", create_type=False), nullable=False, default=CitationVerificationStatus.AI_SUGGESTED)
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Vector embedding fallback for Phase 1
+    embedding = Column(JSON, nullable=True)
+    
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    category = relationship("CitationCategory", back_populates="citations")
+    creator = relationship("User", foreign_keys=[created_by])

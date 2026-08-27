@@ -6,7 +6,7 @@ celery_app = Celery(
     "legal_ai_worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=['app.tasks.document_tasks']
+    include=['app.tasks.document_tasks', 'app.tasks.ai_tasks']
 )
 
 celery_app.conf.update(

@@ -9,10 +9,12 @@ from .endpoints.dashboard import router as dashboard_router
 from .endpoints.cases import router as cases_router
 from .endpoints.documents import router as documents_router
 from .endpoints.document_processing import router as document_processing_router
-from .endpoints.opinions import router as opinions_router
-# from .ai.router import router as ai_router
+# from .endpoints.opinions import router as opinions_router
+from .endpoints.ai_documents import router as ai_documents_router
+from .endpoints.ai_cases import router as ai_cases_router
+from .endpoints.ai_opinions import router as ai_opinions_router
 from .endpoints.reports import router as reports_router
-from .endpoints.citations import router as citations_router
+# from .endpoints.citations import router as citations_router
 from .endpoints.payments import router as payments_router
 from .endpoints.notifications import router as notifications_router
 from .endpoints.notification_templates import router as notification_templates_router
@@ -38,11 +40,13 @@ api_router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboar
 api_router.include_router(cases_router, prefix="/cases", tags=["Cases"])
 api_router.include_router(messages_router, prefix="/cases", tags=["Messages"])
 api_router.include_router(documents_router, prefix="/documents", tags=["Documents"])
+api_router.include_router(ai_documents_router, prefix="/documents", tags=["AI Documents"])
 api_router.include_router(document_processing_router, prefix="/document-processing", tags=["Document Processing"])
-api_router.include_router(opinions_router, prefix="/opinions", tags=["Opinions"])
-# api_router.include_router(ai_router, prefix="/cases/{case_id}/ai", tags=["AI"])
+# api_router.include_router(opinions_router, prefix="/opinions", tags=["Opinions"])
+api_router.include_router(ai_cases_router, prefix="/cases", tags=["AI Cases"])
+api_router.include_router(ai_opinions_router, prefix="", tags=["AI Opinions"])
 api_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
-api_router.include_router(citations_router, prefix="/citations", tags=["Citations"])
+# api_router.include_router(citations_router, prefix="/citations", tags=["Citations"])
 api_router.include_router(payments_router, prefix="/payments", tags=["Payments"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 api_router.include_router(notification_templates_router, prefix="/notification-templates", tags=["Notification Templates"])

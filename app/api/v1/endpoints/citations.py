@@ -56,3 +56,13 @@ async def delete_citation(
 ):
     await service.delete_citation(citation_id)
     return {"status": "success", "message": "Citation deleted"}
+
+@router.post("/{citation_id}/verify", response_model=CitationResponse)
+async def verify_citation(
+    citation_id: uuid.UUID, 
+    service: CitationService = Depends(get_citation_service)
+):
+    # Mock verification for Phase 1
+    citation = await service.get_citation(citation_id)
+    # Return the citation, ideally we would update it to ADVOCATE_VERIFIED here
+    return citation
