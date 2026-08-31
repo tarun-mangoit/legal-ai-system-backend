@@ -25,8 +25,17 @@ class OCRRepository:
             
         return job
 
-    async def update_status(self, job_id: uuid.UUID, status: ProcessingStatus, error_message: str = None) -> OCRJob:
-        job = await self.session.get(OCRJob, job_id)
+    async def get_job(self, document_id: uuid.UUID) -> Optional[OCRJob]:
+        result = await self.session.execute(
+            select(OCRJob).where(OCRJob.document_id == document_id)
+        )
+        return result.scalars().first()
+
+    async def update_status(self, document_id: uuid.UUID, status: ProcessingStatus, error_message: str = None) -> OCRJob:
+        result = await self.session.execute(
+            select(OCRJob).where(OCRJob.document_id == document_id)
+        )
+        job = result.scalars().first()
         if job:
             job.status = status.value
             if status == ProcessingStatus.PROCESSING:
@@ -60,8 +69,17 @@ class AIRepository:
             
         return job
 
-    async def update_job_status(self, job_id: uuid.UUID, status: ProcessingStatus, error_message: str = None, increment_retry: bool = False) -> AIJob:
-        job = await self.session.get(AIJob, job_id)
+    async def get_job(self, document_id: uuid.UUID) -> Optional[AIJob]:
+        result = await self.session.execute(
+            select(AIJob).where(AIJob.document_id == document_id)
+        )
+        return result.scalars().first()
+
+    async def update_job_status(self, document_id: uuid.UUID, status: ProcessingStatus, error_message: str = None, increment_retry: bool = False) -> AIJob:
+        result = await self.session.execute(
+            select(AIJob).where(AIJob.document_id == document_id)
+        )
+        job = result.scalars().first()
         if job:
             job.status = status.value
             if status == ProcessingStatus.PROCESSING and not job.started_at:

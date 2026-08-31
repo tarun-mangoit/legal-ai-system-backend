@@ -32,15 +32,21 @@ class DocumentProcessingService:
 
     async def get_processing_status(self, document_id: uuid.UUID) -> Dict[str, Any]:
         """Returns the current status of OCR and AI processing."""
-        ocr_job = await self.ocr_repo.get_or_create_job(document_id)
-        ai_job = await self.ai_repo.get_or_create_job(document_id)
+        ocr_job = await self.ocr_repo.get_job(document_id)
+        ai_job = await self.ai_repo.get_job(document_id)
+        
+        if not ocr_job and not ai_job:
+            raise HTTPException(status_code=404, detail="Processing not started")
+            
+        ocr_status = ocr_job.status if ocr_job else ProcessingStatus.PENDING.value
+        ai_status = ai_job.status if ai_job else ProcessingStatus.PENDING.value
         
         # Determine overall status
-        if ocr_job.status == ProcessingStatus.FAILED.value or ai_job.status == ProcessingStatus.FAILED.value:
+        if ocr_status == ProcessingStatus.FAILED.value or ai_status == ProcessingStatus.FAILED.value:
             overall = ProcessingStatus.FAILED.value
-        elif ocr_job.status == ProcessingStatus.PENDING.value and ai_job.status == ProcessingStatus.PENDING.value:
+        elif ocr_status == ProcessingStatus.PENDING.value and ai_status == ProcessingStatus.PENDING.value:
             overall = ProcessingStatus.PENDING.value
-        elif ocr_job.status == ProcessingStatus.COMPLETED.value and ai_job.status == ProcessingStatus.COMPLETED.value:
+        elif ocr_status == ProcessingStatus.COMPLETED.value and ai_status == ProcessingStatus.COMPLETED.value:
             overall = ProcessingStatus.COMPLETED.value
         else:
             overall = ProcessingStatus.PROCESSING.value
@@ -48,11 +54,11 @@ class DocumentProcessingService:
         return {
             "document_id": str(document_id),
             "overall_status": overall,
-            "ocr_status": ocr_job.status,
-            "ai_status": ai_job.status,
-            "ocr_error": ocr_job.error_message,
-            "ai_error": ai_job.error_message,
-            "ai_retries": ai_job.retry_count
+            "ocr_status": ocr_status,
+            "ai_status": ai_status,
+            "ocr_error": ocr_job.error_message if ocr_job else None,
+            "ai_error": ai_job.error_message if ai_job else None,
+            "ai_retries": ai_job.retry_count if ai_job else 0
         }
 
     async def get_summary(self, document_id: uuid.UUID) -> Optional[Dict[str, Any]]:
