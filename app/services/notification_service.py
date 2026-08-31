@@ -124,7 +124,7 @@ class NotificationService:
         notification.status = NotificationStatus.SENDING
         await db.commit()
 
-        success = await provider.send(notification)
+        success = await provider.send(notification, db=db)
         
         if success:
             notification.status = NotificationStatus.SENT

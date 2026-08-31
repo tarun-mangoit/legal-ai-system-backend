@@ -97,9 +97,9 @@ class CaseService:
         
         all_docs_have_summary = False
         if documents:
-            from app.models.ai_summary import AISummary
+            from app.models.document_summary import DocumentSummary
             doc_ids = [d.id for d in documents]
-            summary_result = await db.execute(select(AISummary.document_id).where(AISummary.document_id.in_(doc_ids)))
+            summary_result = await db.execute(select(DocumentSummary.document_id).where(DocumentSummary.document_id.in_(doc_ids)))
             summary_doc_ids = summary_result.scalars().all()
             if len(set(summary_doc_ids)) == len(documents):
                 all_docs_have_summary = True
@@ -111,7 +111,7 @@ class CaseService:
         
         # Build permissions
         permissions = {
-            "can_view_ai_analysis": role_name in ["admin", "advocate"] and all_docs_have_summary,
+            "can_view_ai_analysis": role_name in ["admin", "advocate"],
             "can_edit_case": role_name == "admin",
             "can_assign_advocate": role_name == "admin",
             "can_update_status": role_name in ["admin", "advocate"],

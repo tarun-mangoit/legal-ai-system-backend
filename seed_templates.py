@@ -61,6 +61,18 @@ case_assigned_html = """
 </html>
 """
 
+payment_required_html = """
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Payment Required for Case {{case_number}}</h2>
+    <p>Your case titled '{{title}}' has been reviewed.</p>
+    <p>A fee of {{amount}} is required to proceed with your case.</p>
+    <p>Please log in to your dashboard to complete the payment.</p>
+</body>
+</html>
+"""
+
 payment_success_html = """
 <!DOCTYPE html>
 <html>
@@ -124,6 +136,7 @@ standard_template_html = """
             color: #2c5282;
             border-bottom: 1px solid #e2e8f0;
             padding-bottom: 5px;
+            font-size: 14pt;
         }
         .meta-data {
             background-color: #f7fafc;
@@ -161,6 +174,8 @@ standard_template_html = """
             transform: rotate(-45deg);
             z-index: -1;
         }
+        ul { margin-top: 5px; margin-bottom: 5px; }
+        .disclaimer { font-size: 9pt; color: #666; font-style: italic; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 10px;}
     </style>
 </head>
 <body>
@@ -181,35 +196,131 @@ standard_template_html = """
     </div>
 
     <div class="section">
-        <h2>1. Executive Summary</h2>
-        <div>{{ opinion.summary | default('No executive summary available.', true) }}</div>
+        <h2>1. Instructions</h2>
+        <div>{{ opinion.instructions | default('None provided.', true) }}</div>
     </div>
 
     <div class="section">
-        <h2>2. Facts of the Case</h2>
-        <div>{{ opinion.facts | default('No facts available.', true) }}</div>
+        <h2>2. Brief Facts</h2>
+        <div>{{ opinion.brief_facts | default('None provided.', true) }}</div>
     </div>
 
     <div class="section">
-        <h2>3. Legal Analysis</h2>
-        <div>{{ opinion.legal_analysis | default('No legal analysis available.', true) }}</div>
+        <h2>3. Issues for Consideration</h2>
+        {% if opinion.issues %}
+            <ul>
+            {% for issue in opinion.issues %}
+                <li>{{ issue }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None provided.</p>
+        {% endif %}
     </div>
 
     <div class="section">
-        <h2>4. Risk Assessment</h2>
-        <p><strong>Risk Level:</strong> {{ opinion.risk_level.value if opinion.risk_level else 'Unknown' }}</p>
-        <p><strong>Winning Probability:</strong> {{ opinion.winning_probability }}%</p>
+        <h2>4. Applicable Law</h2>
+        {% if opinion.applicable_law %}
+            <ul>
+            {% for law in opinion.applicable_law %}
+                <li>{{ law }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None provided.</p>
+        {% endif %}
     </div>
 
     <div class="section">
-        <h2>5. Recommendations</h2>
-        <div>{{ opinion.recommendations | default('No recommendations available.', true) }}</div>
+        <h2>5. Legal Analysis</h2>
+        <div>{{ opinion.legal_analysis | default('None provided.', true) }}</div>
+    </div>
+
+    <div class="section">
+        <h2>6. Evidence Assessment</h2>
+        <div>{{ opinion.evidence_assessment | default('None provided.', true) }}</div>
+    </div>
+    
+    <div class="section">
+        <h2>7. Precedents</h2>
+        {% if opinion.precedents %}
+            <ul>
+            {% for prec in opinion.precedents %}
+                <li>{{ prec }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None provided.</p>
+        {% endif %}
+    </div>
+    
+    <div class="section">
+        <h2>8. Strengths & Weaknesses</h2>
+        <p><strong>Strengths:</strong></p>
+        {% if opinion.strengths %}
+            <ul>
+            {% for st in opinion.strengths %}
+                <li>{{ st }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None</p>
+        {% endif %}
+        
+        <p><strong>Weaknesses:</strong></p>
+        {% if opinion.weaknesses %}
+            <ul>
+            {% for wk in opinion.weaknesses %}
+                <li>{{ wk }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None</p>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>9. Risk Assessment</h2>
+        <p><strong>Overall Risk Level:</strong> {{ opinion.risk_level if opinion.risk_level else 'Unknown' }}</p>
+        <p><strong>Winning Probability:</strong> {{ opinion.winning_probability if opinion.winning_probability else '0' }}%</p>
+        <p><strong>Specific Risks:</strong></p>
+        {% if opinion.risks %}
+            <ul>
+            {% for risk in opinion.risks %}
+                <li>{{ risk }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None identified.</p>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>10. Recommendations</h2>
+        {% if opinion.recommendations %}
+            <ul>
+            {% for rec in opinion.recommendations %}
+                <li>{{ rec }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>None provided.</p>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>11. Conclusion</h2>
+        <div>{{ opinion.conclusion | default('None provided.', true) }}</div>
     </div>
 
     <div class="signature">
         <div class="signature-line">
             Authorized Signature
         </div>
+    </div>
+    
+    <div class="disclaimer">
+        <strong>Disclaimer:</strong> {{ opinion.disclaimer | default('This is a draft legal opinion generated by an AI assistant and should be reviewed by a qualified advocate. It does not constitute binding legal advice.') }}
     </div>
 </body>
 </html>
@@ -244,6 +355,7 @@ async def seed_templates():
             ("Document Uploaded", "New Document for Case {{case_number}}", document_uploaded_html),
             ("Password Reset", "Password Reset Request", password_reset_html),
             ("Case Assigned", "New Case Assigned: {{case_number}}", case_assigned_html),
+            ("Payment Required", "Payment Required for Case {{case_number}}", payment_required_html),
             ("Payment Success", "Payment Successful", payment_success_html),
             ("Report Ready", "Your Legal Report is Ready", report_ready_html)
         ]

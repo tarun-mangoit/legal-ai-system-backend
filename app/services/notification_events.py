@@ -59,6 +59,15 @@ class NotificationEventHandler:
             category=NotificationCategory.CASE,
             action_url="/admin/cases"
         )
+        await self.notification_service.notify_admins(
+            db=db,
+            title="New Case Submitted",
+            message=f"A new case '{title}' ({case_number}) has been submitted and requires review.",
+            priority=1,
+            channel=NotificationChannel.EMAIL,
+            category=NotificationCategory.CASE,
+            action_url="/admin/cases"
+        )
 
     async def handle_document_uploaded(self, db: AsyncSession, case_id: str, case_number: str, uploader_name: str, document_name: str, notify_user_id: str):
         logger.info(f"Event: DocumentUploaded for case {case_number}")
@@ -106,23 +115,57 @@ class NotificationEventHandler:
             category=NotificationCategory.SYSTEM
         )
 
-    async def handle_payment_success(self, db: AsyncSession, user_id: str, amount: float, reference: str):
+    async def handle_payment_success(self, db: AsyncSession, user_id: str, amount: float, reference: str, case_number: str = None):
         logger.info(f"Event: PaymentSuccess for ref {reference}")
+        
+        context = {"payment_amount": str(amount), "reference": reference}
+        if case_number:
+            context["case_number"] = case_number
+            
         await self.notification_service.send_templated_notification(
             db=db,
             user_id=user_id,
             channel=NotificationChannel.EMAIL,
             template_name="Payment Success",
-            context={"payment_amount": str(amount), "reference": reference},
+            context=context,
             priority=2
         )
+        
+        client_msg = f"We have received your payment of ${amount}."
+        if case_number:
+            client_msg = f"We have received your payment of ${amount} for case {case_number}."
+            
         await self.notification_service.send_notification(
             db=db,
             user_id=user_id,
             channel=NotificationChannel.IN_APP,
             title="Payment Successful",
-            message=f"We have received your payment of ${amount}.",
+            message=client_msg,
             priority=2
+        )
+        
+        admin_msg = f"A payment of ${amount} (Ref: {reference}) has been successfully received."
+        if case_number:
+            admin_msg = f"A payment of ${amount} (Ref: {reference}) has been successfully received for case {case_number}."
+            
+        # Notify Admins
+        await self.notification_service.notify_admins(
+            db=db,
+            title="Payment Received",
+            message=admin_msg,
+            priority=2,
+            channel=NotificationChannel.IN_APP,
+            category=NotificationCategory.PAYMENT,
+            action_url="/admin/payments"
+        )
+        await self.notification_service.notify_admins(
+            db=db,
+            title="Payment Received",
+            message=admin_msg,
+            priority=2,
+            channel=NotificationChannel.EMAIL,
+            category=NotificationCategory.PAYMENT,
+            action_url="/admin/payments"
         )
 
     async def handle_report_generated(self, db: AsyncSession, user_id: str, report_name: str, case_number: str):

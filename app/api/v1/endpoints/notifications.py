@@ -32,7 +32,11 @@ async def get_notifications(
 ) -> Any:
     """Retrieve notifications for the current user."""
     repo = NotificationRepository()
-    notifications = await repo.get_by_user(db, str(current_user.id), unread_only, skip, limit)
+    
+    # We only want to return IN_APP notifications to the frontend UI feed
+    from app.models.notification import NotificationChannel
+    all_notifications = await repo.get_by_user(db, str(current_user.id), unread_only, skip, 1000)
+    notifications = [n for n in all_notifications if n.channel == NotificationChannel.IN_APP][:limit]
     
     # Fast count of unread (if full unread count is needed, a separate query could be optimized)
     unread_count = sum(1 for n in notifications if not n.is_read)

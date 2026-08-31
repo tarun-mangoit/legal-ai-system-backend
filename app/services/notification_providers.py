@@ -13,14 +13,40 @@ class NotificationProvider(ABC):
         """Sends a notification and returns True if successful."""
         pass
 
+from app.utils.email import send_email_async
+from app.models.user import User
+from app.repositories.user_repository import UserRepository
+
 class EmailProvider(NotificationProvider):
     async def send(self, notification: Notification, **kwargs: Any) -> bool:
         logger.info(f"Attempting to send EMAIL notification {notification.id} to user {notification.user_id}")
+        
+        # We need the user's email address
+        db = kwargs.get('db')
+        if not db:
+            logger.error("Database session not provided to EmailProvider")
+            return False
+            
         try:
-            # Here you would typically integrate with an SMTP server or service like SendGrid
-            # For example: await sendgrid_client.send(email)
-            logger.info(f"EMAIL sent successfully: {notification.title} [Action URL: {notification.action_url}]")
-            return True
+            repo = UserRepository()
+            user = await repo.get_by_id(db, str(notification.user_id))
+            if not user or not user.email:
+                logger.error(f"User {notification.user_id} not found or has no email")
+                return False
+                
+            # Send real email using the SMTP utility
+            success = await send_email_async(
+                to_email=user.email,
+                subject=notification.title,
+                content=notification.message
+            )
+            
+            if success:
+                logger.info(f"EMAIL sent successfully to {user.email}: {notification.title}")
+            else:
+                logger.error(f"Failed to send real EMAIL to {user.email}")
+                
+            return success
         except Exception as e:
             logger.error(f"Failed to send EMAIL: {e}")
             return False

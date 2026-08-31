@@ -84,7 +84,7 @@ class PaymentService:
                 # Log History
                 await case_history_repository.create(self.db, obj_in={
                     "case_id": case.id,
-                    "user_id": payment.client_id,
+                    "changed_by": payment.client_id,
                     "action_type": "STATUS_CHANGE",
                     "previous_value": str(prev_status),
                     "new_value": str(CaseStatus.PAYMENT_COMPLETED)
@@ -96,7 +96,8 @@ class PaymentService:
                     db=self.db,
                     user_id=str(payment.client_id),
                     amount=float(payment.amount),
-                    reference=razorpay_payment_id
+                    reference=razorpay_payment_id,
+                    case_number=case.case_number if case else None
                 )
             except Exception as e:
                 import logging
@@ -153,11 +154,24 @@ class PaymentService:
                         await case_repository.update(self.db, case, {"status": CaseStatus.PAYMENT_COMPLETED})
                         await case_history_repository.create(self.db, obj_in={
                             "case_id": case.id,
-                            "user_id": payment.client_id,
+                            "changed_by": payment.client_id,
                             "action_type": "STATUS_CHANGE",
                             "previous_value": str(prev_status),
                             "new_value": str(CaseStatus.PAYMENT_COMPLETED)
                         })
+                        
+                    # Trigger notification
+                    try:
+                        await notification_events.handle_payment_success(
+                            db=self.db,
+                            user_id=str(payment.client_id),
+                            amount=float(payment.amount),
+                            reference=payment_obj.get('id'),
+                            case_number=case.case_number if case else None
+                        )
+                    except Exception as e:
+                        import logging
+                        logging.error(f"Failed to trigger payment success notification in webhook: {e}")
         
         return True
 

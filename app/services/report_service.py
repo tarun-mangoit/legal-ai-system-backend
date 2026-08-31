@@ -33,8 +33,9 @@ class ReportService:
         opinion_result = await self.db.execute(select(LegalOpinion).where(LegalOpinion.case_id == case_id))
         opinion = opinion_result.scalars().first()
         
-        if not opinion or not opinion.is_final:
-            raise HTTPException(status_code=400, detail="Cannot generate report: No finalized opinion exists for this case")
+        from app.models.legal_opinion import OpinionStatus
+        if not opinion or opinion.status not in [OpinionStatus.APPROVED, OpinionStatus.DRAFT, OpinionStatus.UNDER_REVIEW, OpinionStatus.REVISED]:
+            raise HTTPException(status_code=400, detail="Cannot generate report: No valid opinion exists for this case")
 
         template = await self.repository.get_template(template_id)
         if not template:

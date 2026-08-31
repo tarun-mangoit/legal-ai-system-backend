@@ -113,8 +113,9 @@ def generate_case_analysis_task(self, case_id: str, relevant_document_ids: list)
                     print(f"CaseAnalysis record not found for case {case_id}")
                     return
 
-                # 2. Fetch DocumentSummaries for the case
-                stmt = select(DocumentSummary).where(DocumentSummary.case_id == case_id)
+                # 2. Fetch AISummaries for the case
+                from app.models.ai_summary import AISummary, ProcessingStatus
+                stmt = select(AISummary).where(AISummary.case_id == case_id, AISummary.status == ProcessingStatus.COMPLETED.value)
                 summary_results = await session.execute(stmt)
                 summaries = summary_results.scalars().all()
                 
@@ -127,10 +128,10 @@ def generate_case_analysis_task(self, case_id: str, relevant_document_ids: list)
                 summaries_list = [
                     {
                         "document_id": str(s.document_id),
-                        "summary": s.summary,
-                        "key_facts": s.key_facts,
-                        "legal_references": s.legal_references
-                    } for s in summaries if s.summary
+                        "summary": s.overall_summary,
+                        "key_facts": s.important_facts,
+                        "legal_references": s.legal_issues
+                    } for s in summaries if s.overall_summary
                 ]
 
                 # 3. Call ai_service
@@ -154,6 +155,9 @@ def generate_case_analysis_task(self, case_id: str, relevant_document_ids: list)
                 await session.commit()
                 print(f"Successfully generated case analysis for case {case_id}")
                 
+                # Chain: Automatically trigger the Legal Opinion generation
+                generate_legal_opinion_draft_task.delay(case_id)
+                
             except Exception as e:
                 # Set FAILED status on error
                 result = await session.execute(select(CaseAnalysis).where(CaseAnalysis.case_id == case_id))
@@ -175,12 +179,17 @@ def generate_legal_opinion_draft_task(self, case_id: str):
     async def _run():
         async with AsyncSessionLocal() as session:
             try:
-                # 1. Fetch LegalOpinion record
+                # 1. Fetch LegalOpinion record or create one if it doesn't exist
                 result = await session.execute(select(LegalOpinion).where(LegalOpinion.case_id == case_id))
                 opinion_record = result.scalars().first()
                 if not opinion_record:
-                    print(f"LegalOpinion record not found for case {case_id}")
-                    return
+                    print(f"LegalOpinion record not found for case {case_id}. Creating new draft.")
+                    opinion_record = LegalOpinion(
+                        case_id=case_id,
+                        status=OpinionStatus.GENERATING
+                    )
+                    session.add(opinion_record)
+                    await session.commit()
 
                 # 2. Fetch CaseAnalysis
                 analysis_result = await session.execute(select(CaseAnalysis).where(CaseAnalysis.case_id == case_id))
