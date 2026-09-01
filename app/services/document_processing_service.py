@@ -32,6 +32,8 @@ class DocumentProcessingService:
 
     async def get_processing_status(self, document_id: uuid.UUID) -> Dict[str, Any]:
         """Returns the current status of OCR and AI processing."""
+        from datetime import datetime, timedelta, timezone
+        
         ocr_job = await self.ocr_repo.get_job(document_id)
         ai_job = await self.ai_repo.get_job(document_id)
         
@@ -40,6 +42,24 @@ class DocumentProcessingService:
             
         ocr_status = ocr_job.status if ocr_job else ProcessingStatus.PENDING.value
         ai_status = ai_job.status if ai_job else ProcessingStatus.PENDING.value
+        
+        now = datetime.now(timezone.utc)
+        
+        # Check for stuck OCR job (> 5 minutes)
+        ocr_error_msg = ocr_job.error_message if ocr_job else None
+        if ocr_job and ocr_status in [ProcessingStatus.PENDING.value, ProcessingStatus.PROCESSING.value]:
+            last_active = ocr_job.updated_at or ocr_job.created_at
+            if last_active and (now - last_active) > timedelta(minutes=5):
+                ocr_status = ProcessingStatus.FAILED.value
+                ocr_error_msg = "Job timed out or worker crashed."
+                
+        # Check for stuck AI job (> 5 minutes)
+        ai_error_msg = ai_job.error_message if ai_job else None
+        if ai_job and ai_status in [ProcessingStatus.PENDING.value, ProcessingStatus.PROCESSING.value]:
+            last_active = ai_job.updated_at or ai_job.created_at
+            if last_active and (now - last_active) > timedelta(minutes=5):
+                ai_status = ProcessingStatus.FAILED.value
+                ai_error_msg = "Job timed out or worker crashed."
         
         # Determine overall status
         if ocr_status == ProcessingStatus.FAILED.value or ai_status == ProcessingStatus.FAILED.value:
@@ -56,8 +76,8 @@ class DocumentProcessingService:
             "overall_status": overall,
             "ocr_status": ocr_status,
             "ai_status": ai_status,
-            "ocr_error": ocr_job.error_message if ocr_job else None,
-            "ai_error": ai_job.error_message if ai_job else None,
+            "ocr_error": ocr_error_msg,
+            "ai_error": ai_error_msg,
             "ai_retries": ai_job.retry_count if ai_job else 0
         }
 
