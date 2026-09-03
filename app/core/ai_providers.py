@@ -62,3 +62,25 @@ class GeminiProvider(AIProvider):
         }
         
         return parsed, usage
+
+    async def generate_chat_response(self, system_instruction: str, history: list, message: str) -> str:
+        """
+        Generate a conversational response using Gemini.
+        history format: [{"role": "user"|"model", "parts": ["text"]}]
+        """
+        if not self.model:
+            raise RuntimeError("Gemini model is not initialized.")
+        
+        try:
+            import google.generativeai as genai
+            chat_model = genai.GenerativeModel(
+                "gemini-3.5-flash",
+                system_instruction=system_instruction
+            )
+            chat = chat_model.start_chat(history=history)
+            response = await chat.send_message_async(message)
+            return response.text
+        except Exception as e:
+            logger.error(f"Gemini Chat API failed: {e}")
+            raise RuntimeError(f"Gemini API failed: {e}") from e
+

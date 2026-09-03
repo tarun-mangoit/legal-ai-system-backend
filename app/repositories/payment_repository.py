@@ -28,6 +28,10 @@ class PaymentRepository:
     async def get_payments_by_client(self, client_id: uuid.UUID) -> List[Payment]:
         result = await self.db.execute(select(Payment).where(Payment.client_id == client_id))
         return list(result.scalars().all())
+
+    async def get_payments_by_case(self, case_id: uuid.UUID) -> List[Payment]:
+        result = await self.db.execute(select(Payment).where(Payment.case_id == case_id))
+        return list(result.scalars().all())
         
     async def get_all_payments(self) -> List[Payment]:
         result = await self.db.execute(select(Payment))

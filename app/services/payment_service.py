@@ -19,6 +19,19 @@ class PaymentService:
         self.db = db
 
     async def create_order(self, case_id: uuid.UUID, client_id: uuid.UUID, amount: float) -> Payment:
+        # Check for existing payments for this case
+        existing_payments = await self.repository.get_payments_by_case(case_id)
+        
+        # Check if there is already a SUCCESS payment
+        if any(p.status == PaymentStatus.SUCCESS for p in existing_payments):
+            raise HTTPException(status_code=400, detail="A successful payment already exists for this case.")
+            
+        # Check if there is already an unpaid order (CREATED or PENDING)
+        active_order = next((p for p in existing_payments if p.status in [PaymentStatus.CREATED, PaymentStatus.PENDING]), None)
+        if active_order:
+            # Optionally update the amount if it has changed, but for now we return the existing one
+            return active_order
+
         # Create Razorpay Order
         receipt_id = f"rcpt_{str(uuid.uuid4())[:8]}"
         order_response = self.gateway.create_order(amount, currency="INR", receipt=receipt_id)
@@ -73,7 +86,11 @@ class PaymentService:
             })
             
             # Auto-generate Invoice
-            await self.invoice_service.generate_invoice(payment.id)
+            try:
+                await self.invoice_service.generate_invoice(payment.id)
+            except Exception as e:
+                import logging
+                logging.error(f"Failed to generate invoice for payment {payment.id}: {e}")
             
             # Update Case Status
             case = await case_repository.get(self.db, payment.case_id)
@@ -145,7 +162,11 @@ class PaymentService:
                         "status": PaymentStatus.SUCCESS,
                         "gateway_payment_id": payment_obj.get('id')
                     })
-                    await self.invoice_service.generate_invoice(payment.id)
+                    try:
+                        await self.invoice_service.generate_invoice(payment.id)
+                    except Exception as e:
+                        import logging
+                        logging.error(f"Failed to generate invoice in webhook for payment {payment.id}: {e}")
                     
                     # Update Case Status
                     case = await case_repository.get(self.db, payment.case_id)

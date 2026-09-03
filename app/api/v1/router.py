@@ -62,3 +62,7 @@ api_router.include_router(practice_areas_router, prefix="/practice-areas", tags=
 api_router.include_router(hero_sliders_router, prefix="/hero-sliders", tags=["Hero Sliders"])
 api_router.include_router(section_content_router, prefix="/section-content", tags=["Section Content"])
 api_router.include_router(seo_router, prefix="/seo", tags=["SEO"])
+
+from .endpoints.ai_chat import router as ai_chat_router
+api_router.include_router(ai_chat_router, prefix="", tags=["AI Chat"])
+
